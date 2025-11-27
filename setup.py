@@ -18,6 +18,6 @@ setup(
     long_description=LONG_DESCRIPTION,
     packages=find_packages(exclude="build"),
     package_data={"": ["*.png", "*.svg", "*.txt"]},
-    python_requires=">=3.7, <3.10",
+    python_requires=">=3.7",
     install_requires=["matplotlib", "biopython==1.83", "pikachu-chem>=1.0.13", "timeout-decorator"],
 )

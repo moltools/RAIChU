@@ -708,8 +708,8 @@ class AntiSmashGene:
         return f"{self.name}"
 
 
-def get_nrps_pks_modules(antismash_gbk):
-    as_domains = parse_antismash_domains_gbk(antismash_gbk)
+def get_nrps_pks_modules(antismash_gbk, file_mode: str) -> ModuleOrder:
+    as_domains = parse_antismash_domains_gbk(antismash_gbk, mode=file_mode)
     genes = []
     for record in SeqIO.parse(antismash_gbk, "genbank"):
         for feature in record.features:

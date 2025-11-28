@@ -1016,30 +1016,42 @@ def sort_genes(genes):
 
 def parse_antismash_domains_gbk(
     antismash_gbk: str | bytes | os.PathLike | "TextIO" = None,
-    version: str = "7.1.0"
+    version: str = "7.1.0",
+    mode: str = "auto"  # auto | path | file_content
 ) -> list[AntiSmashDomain]:
     """
     Parse an antiSMASH GenBank file and extract the antiSMASH domains.
 
     :param antismash_gbk: path to the antiSMASH GenBank file or a file-like object or string containing the GenBank data
     :param version: antiSMASH version used to generate the GenBank file
+    :param mode: mode of input, either 'auto', 'path', or 'file_content'
     :return: list of AntiSmashDomain objects
     """
     handle = None
     close_handle = False
 
+    def _to_str(data):
+        return data.decode() if isinstance(data, bytes) else data
+
     if hasattr(antismash_gbk, "read"):
         handle = antismash_gbk
-    elif isinstance(antismash_gbk, (str, bytes, os.PathLike)):
-        if os.path.exists(antismash_gbk):
+    elif mode == "path":
+        handle = open(antismash_gbk)
+        close_handle = True
+    elif mode == "file_content":
+        text = _to_str(antismash_gbk)
+        handle = StringIO(text)
+        close_handle = True
+    elif mode == "auto":
+        if isinstance(antismash_gbk, (str, bytes, os.PathLike)) and os.path.exists(antismash_gbk):
             handle = open(antismash_gbk)
             close_handle = True
         else:
-            text = antismash_gbk.decode() if isinstance(antismash_gbk, bytes) else antismash_gbk
+            text = _to_str(antismash_gbk)
             handle = StringIO(text)
             close_handle = True
     else:
-        raise TypeError("antismash_gbk must be a file path, file-like object, or string containing GenBank data")
+        raise ValueError("mode must be 'auto', 'path', or 'file_content'")
     
     try:
         domains = []

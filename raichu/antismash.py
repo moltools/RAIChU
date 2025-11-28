@@ -1,6 +1,7 @@
 
 import os
-from typing import Optional
+from io import StringIO
+from typing import Optional, TextIO
 from itertools import permutations
 
 from sys import argv
@@ -1013,23 +1014,53 @@ def sort_genes(genes):
     return gene_groups
 
 
-def parse_antismash_domains_gbk(antismash_gbk, version="7.1.0"):
-    domains = []
+def parse_antismash_domains_gbk(
+    antismash_gbk: str | bytes | os.PathLike | "TextIO" = None,
+    version: str = "7.1.0"
+) -> list[AntiSmashDomain]:
+    """
+    Parse an antiSMASH GenBank file and extract the antiSMASH domains.
 
-    for record in SeqIO.parse(antismash_gbk, "genbank"):
-        for feature in record.features:
-            if feature.type == "aSDomain":
-                domain = AntiSmashDomain(feature.qualifiers["domain_id"][0],
-                                         feature.qualifiers["aSDomain"][0],
-                                         int(feature.location.start),
-                                         int(feature.location.end),
-                                         feature.location.strand,
-                                         feature.qualifiers["locus_tag"][0])
-                domain.add_domain_information(feature.qualifiers)
-                domain.set_raichu_type()
-                domains.append(domain)
+    :param antismash_gbk: path to the antiSMASH GenBank file or a file-like object or string containing the GenBank data
+    :param version: antiSMASH version used to generate the GenBank file
+    :return: list of AntiSmashDomain objects
+    """
+    handle = None
+    close_handle = False
 
-    return domains
+    if hasattr(antismash_gbk, "read"):
+        handle = antismash_gbk
+    elif isinstance(antismash_gbk, (str, bytes, os.PathLike)):
+        if os.path.exists(antismash_gbk):
+            handle = open(antismash_gbk)
+            close_handle = True
+        else:
+            text = antismash_gbk.decode() if isinstance(antismash_gbk, bytes) else antismash_gbk
+            handle = StringIO(text)
+            close_handle = True
+    else:
+        raise TypeError("antismash_gbk must be a file path, file-like object, or string containing GenBank data")
+    
+    try:
+        domains = []
+
+        for record in SeqIO.parse(handle, "genbank"):
+            for feature in record.features:
+                if feature.type == "aSDomain":
+                    domain = AntiSmashDomain(feature.qualifiers["domain_id"][0],
+                                            feature.qualifiers["aSDomain"][0],
+                                            int(feature.location.start),
+                                            int(feature.location.end),
+                                            feature.location.strand,
+                                            feature.qualifiers["locus_tag"][0])
+                    domain.add_domain_information(feature.qualifiers)
+                    domain.set_raichu_type()
+                    domains.append(domain)
+
+        return domains
+    finally:
+        if close_handle:
+            handle.close()
 
 
 def load_antismash_gbk(gbk_file, version=7.0):

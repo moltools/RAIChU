@@ -706,39 +706,81 @@ class AntiSmashGene:
 
     def __repr__(self):
         return f"{self.name}"
+    
+
+def setup_handle(antismash_gbk: Any, mode: str = "auto"):
+    """
+    Sets up a file handle for the antiSMASH GenBank input.
+    
+    :param antismash_gbk: path to the antiSMASH GenBank file or a file-like object or string containing the GenBank data
+    :param mode: mode of input, either 'auto', 'path', or 'file_content'
+    :return: file handle and a boolean indicating whether to close the handle
+    """
+    handle = None
+    close_handle = False
+
+    def _to_str(data):
+        return data.decode() if isinstance(data, bytes) else data
+
+    if hasattr(antismash_gbk, "read"):
+        handle = antismash_gbk
+    elif mode == "path":
+        handle = open(antismash_gbk)
+        close_handle = True
+    elif mode == "file_content":
+        text = _to_str(antismash_gbk)
+        handle = StringIO(text)
+        close_handle = True
+    elif mode == "auto":
+        if isinstance(antismash_gbk, (str, bytes, os.PathLike)) and os.path.exists(antismash_gbk):
+            handle = open(antismash_gbk)
+            close_handle = True
+        else:
+            text = _to_str(antismash_gbk)
+            handle = StringIO(text)
+            close_handle = True
+    else:
+        raise ValueError("mode must be 'auto', 'path', or 'file_content'")
+
+    return handle, close_handle
 
 
 def get_nrps_pks_modules(antismash_gbk, file_mode: str) -> ModuleOrder:
     as_domains = parse_antismash_domains_gbk(antismash_gbk, mode=file_mode)
+    handle, close_handle = setup_handle(antismash_gbk, mode=file_mode)
     genes = []
-    for record in SeqIO.parse(antismash_gbk, "genbank"):
-        for feature in record.features:
-            if feature.type == 'CDS':
+    try:
+        for record in SeqIO.parse(handle, "genbank"):
+            for feature in record.features:
+                if feature.type == 'CDS':
 
-                qualifiers = feature.qualifiers
-                synonyms = []
+                    qualifiers = feature.qualifiers
+                    synonyms = []
 
-                if 'gene' in qualifiers:
-                    synonyms.append(qualifiers['gene'][0])
-                if 'protein' in qualifiers:
-                    synonyms.append(qualifiers['protein'][0])
-                if 'locus_tag' in qualifiers:
-                    synonyms.append(qualifiers['locus_tag'][0])
-                if 'protein_id' in qualifiers:
-                    synonyms.append(qualifiers['protein_id'][0])
+                    if 'gene' in qualifiers:
+                        synonyms.append(qualifiers['gene'][0])
+                    if 'protein' in qualifiers:
+                        synonyms.append(qualifiers['protein'][0])
+                    if 'locus_tag' in qualifiers:
+                        synonyms.append(qualifiers['locus_tag'][0])
+                    if 'protein_id' in qualifiers:
+                        synonyms.append(qualifiers['protein_id'][0])
 
-                if synonyms:
-                    gene = AntiSmashGene(synonyms[0],
-                                         int(feature.location.start),
-                                         int(feature.location.end),
-                                         int(feature.location.strand),
-                                         synonyms)
-                    if gene not in genes:
-                        genes.append(gene)
-                else:
-                    print(f"Warning: No identifier found for a CDS. Domains on this gene will not be processed.")
-                    # for domain in as_domains:
-                    #     if domain.gene in synonyms:
+                    if synonyms:
+                        gene = AntiSmashGene(synonyms[0],
+                                            int(feature.location.start),
+                                            int(feature.location.end),
+                                            int(feature.location.strand),
+                                            synonyms)
+                        if gene not in genes:
+                            genes.append(gene)
+                    else:
+                        print(f"Warning: No identifier found for a CDS. Domains on this gene will not be processed.")
+                        # for domain in as_domains:
+                        #     if domain.gene in synonyms:
+    finally:
+        if close_handle:
+            handle.close()
 
     for domain in as_domains:
         gene_found = False
@@ -1027,31 +1069,7 @@ def parse_antismash_domains_gbk(
     :param mode: mode of input, either 'auto', 'path', or 'file_content'
     :return: list of AntiSmashDomain objects
     """
-    handle = None
-    close_handle = False
-
-    def _to_str(data):
-        return data.decode() if isinstance(data, bytes) else data
-
-    if hasattr(antismash_gbk, "read"):
-        handle = antismash_gbk
-    elif mode == "path":
-        handle = open(antismash_gbk)
-        close_handle = True
-    elif mode == "file_content":
-        text = _to_str(antismash_gbk)
-        handle = StringIO(text)
-        close_handle = True
-    elif mode == "auto":
-        if isinstance(antismash_gbk, (str, bytes, os.PathLike)) and os.path.exists(antismash_gbk):
-            handle = open(antismash_gbk)
-            close_handle = True
-        else:
-            text = _to_str(antismash_gbk)
-            handle = StringIO(text)
-            close_handle = True
-    else:
-        raise ValueError("mode must be 'auto', 'path', or 'file_content'")
+    handle, close_handle = setup_handle(antismash_gbk, mode)
     
     try:
         domains = []

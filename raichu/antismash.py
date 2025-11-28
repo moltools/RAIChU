@@ -1,7 +1,7 @@
 
 import os
 from io import StringIO
-from typing import Optional, TextIO
+from typing import Any, Optional
 from itertools import permutations
 
 from sys import argv
@@ -1015,7 +1015,7 @@ def sort_genes(genes):
 
 
 def parse_antismash_domains_gbk(
-    antismash_gbk: str | bytes | os.PathLike | "TextIO" = None,
+    antismash_gbk: Any,
     version: str = "7.1.0",
     mode: str = "auto"  # auto | path | file_content
 ) -> list[AntiSmashDomain]:
